@@ -1,0 +1,6 @@
+{
+  "name": "Slide RAKER HRGA-IT",
+  "description": "Aplikasi presentasi slide interaktif dan customizable untuk Rapat Kerja (RAKER) Departemen HR, GA, dan IT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
