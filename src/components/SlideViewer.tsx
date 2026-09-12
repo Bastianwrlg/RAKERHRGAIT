@@ -89,17 +89,6 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {slide.interactiveOptions?.allowCelebration && (
-            <button
-              onClick={triggerConfetti}
-              title="Rayakan Capaian / Milestone!"
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 rounded-lg text-xs font-semibold shadow-xs transition-transform hover:scale-105 active:scale-95"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span className="hidden sm:inline">Milestone 🎉</span>
-            </button>
-          )}
-
           {onEditSlide && (
             <button
               onClick={onEditSlide}

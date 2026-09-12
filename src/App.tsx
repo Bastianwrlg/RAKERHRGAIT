@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Slide, Department, PresentationState } from './types';
 import { initialSlides } from './data/initialSlides';
-import { HeaderNavbar } from './components/HeaderNavbar';
+import { VerticalNav } from './components/VerticalNav';
 import { SlideViewer } from './components/SlideViewer';
 import { PresentationControls } from './components/PresentationControls';
 import { PresenterNotesModal } from './components/PresenterNotesModal';
@@ -12,7 +12,7 @@ import { PrintSlidesView } from './components/PrintSlidesView';
 import { triggerConfetti } from './utils/confetti';
 import { Eye } from 'lucide-react';
 
-const STORAGE_KEY = 'raker_hrga_it_slides_v1';
+const STORAGE_KEY = 'raker_hrga_it_slides_v2';
 
 export default function App() {
   // Load slides from localStorage or fallback to default
@@ -22,7 +22,8 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const hasSop = parsed.some((s: Slide) => s.id === 'slide-hr-sop-mpp');
+          if (hasSop) return parsed;
         }
       }
     } catch (e) {
@@ -404,16 +405,39 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col justify-between selection:bg-blue-600 selection:text-white font-sans">
+    <div className="h-screen w-screen bg-slate-100 text-slate-900 flex flex-row overflow-hidden selection:bg-blue-600 selection:text-white font-sans">
       {/* Laser pointer overlay */}
       <LaserPointer active={state.isLaserActive} />
 
-      {/* Top Navbar Header (hidden when fullscreen or printing) */}
+      {/* Vertical Navigation Sidebar */}
       {!state.isFullscreen && (
-        <HeaderNavbar
+        <VerticalNav
           selectedDepartment={state.selectedDepartment}
           onSelectDepartment={handleSelectDepartment}
           slideCounts={slideCounts}
+          slides={slides}
+          currentIndex={slides.findIndex((s) => s.id === currentSlide.id)}
+          onJumpToSlide={(idx) => {
+            const targetSlide = slides[idx];
+            if (!targetSlide) return;
+            if (
+              state.selectedDepartment === 'ALL' ||
+              targetSlide.department === state.selectedDepartment ||
+              targetSlide.department === 'ALL'
+            ) {
+              const filteredIdx = filteredSlides.findIndex((s) => s.id === targetSlide.id);
+              if (filteredIdx !== -1) {
+                setState((prev) => ({ ...prev, currentSlideIndex: filteredIdx, isBlackout: false }));
+                return;
+              }
+            }
+            setState((prev) => ({
+              ...prev,
+              selectedDepartment: 'ALL',
+              currentSlideIndex: idx,
+              isBlackout: false,
+            }));
+          }}
           onStartPresentation={handleToggleFullscreen}
           onToggleEditor={() => setState((prev) => ({ ...prev, isEditing: true }))}
           onAddNewSlide={handleAddNewSlide}
@@ -424,59 +448,65 @@ export default function App() {
           onImportJSON={handleImportJSON}
           onPrintSlides={handlePrintSlides}
           onResetDefault={handleResetDefault}
+          timerSeconds={state.timerSeconds}
+          isTimerRunning={state.isTimerRunning}
+          onToggleTimer={() => setState((prev) => ({ ...prev, isTimerRunning: !prev.isTimerRunning }))}
+          onResetTimer={() => setState((prev) => ({ ...prev, timerSeconds: 0, isTimerRunning: false }))}
         />
       )}
 
-      {/* Main Slide Presentation Stage */}
-      <main className={`flex-1 flex items-center justify-center p-2 sm:p-4 md:p-6 transition-all ${
-        state.isFullscreen ? 'p-0 h-screen w-screen fixed inset-0 z-50 bg-black' : 'max-w-6xl mx-auto w-full'
-      }`}>
-        {/* Blackout Blank Screen */}
-        {state.isBlackout ? (
-          <div
-            onClick={() => setState((prev) => ({ ...prev, isBlackout: false }))}
-            className="w-full h-full flex flex-col items-center justify-center bg-black cursor-pointer text-slate-400 hover:text-slate-200 transition-colors p-8 text-center"
-          >
-            <Eye className="w-12 h-12 mb-3 opacity-30 animate-pulse" />
-            <p className="text-sm font-medium">Layar Hitam Aktif (Fokus Pembicara RAKER)</p>
-            <span className="text-xs text-slate-500 mt-1">Tekan tombol [B] atau klik di mana saja untuk melanjutkan slide</span>
-          </div>
-        ) : (
-          <SlideViewer
-            slide={currentSlide}
-            totalSlides={filteredSlides.length}
-            currentNumber={state.currentSlideIndex + 1}
-            onEditSlide={() => setState((prev) => ({ ...prev, isEditing: true }))}
-            isFullscreen={state.isFullscreen}
-            onNavigateToMateri={handleJumpToDepartmentMateri}
-            onOpenSlideMenu={() => setState((prev) => ({ ...prev, showDrawer: true }))}
-            themeId="light-corporate"
-          />
-        )}
-      </main>
+      {/* Main Slide Presentation Stage & Viewport */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <main className={`flex-1 flex items-center justify-center p-2 sm:p-4 md:p-6 transition-all overflow-y-auto ${
+          state.isFullscreen ? 'p-0 h-screen w-screen fixed inset-0 z-50 bg-black' : 'w-full h-full'
+        }`}>
+          {/* Blackout Blank Screen */}
+          {state.isBlackout ? (
+            <div
+              onClick={() => setState((prev) => ({ ...prev, isBlackout: false }))}
+              className="w-full h-full flex flex-col items-center justify-center bg-black cursor-pointer text-slate-400 hover:text-slate-200 transition-colors p-8 text-center"
+            >
+              <Eye className="w-12 h-12 mb-3 opacity-30 animate-pulse" />
+              <p className="text-sm font-medium">Layar Hitam Aktif (Fokus Pembicara RAKER)</p>
+              <span className="text-xs text-slate-500 mt-1">Tekan tombol [B] atau klik di mana saja untuk melanjutkan slide</span>
+            </div>
+          ) : (
+            <SlideViewer
+              slide={currentSlide}
+              totalSlides={filteredSlides.length}
+              currentNumber={state.currentSlideIndex + 1}
+              onEditSlide={() => setState((prev) => ({ ...prev, isEditing: true }))}
+              isFullscreen={state.isFullscreen}
+              onNavigateToMateri={handleJumpToDepartmentMateri}
+              onOpenSlideMenu={() => setState((prev) => ({ ...prev, showDrawer: true }))}
+              themeId="light-corporate"
+            />
+          )}
+        </main>
 
-      {/* Floating Presentation Controls */}
-      <PresentationControls
-        currentIndex={state.currentSlideIndex}
-        totalSlides={filteredSlides.length}
-        onPrev={handlePrevSlide}
-        onNext={handleNextSlide}
-        onJumpTo={handleJumpTo}
-        isFullscreen={state.isFullscreen}
-        onToggleFullscreen={handleToggleFullscreen}
-        isLaserActive={state.isLaserActive}
-        onToggleLaser={() => setState((prev) => ({ ...prev, isLaserActive: !prev.isLaserActive }))}
-        showNotes={state.showNotes}
-        onToggleNotes={() => setState((prev) => ({ ...prev, showNotes: !prev.showNotes }))}
-        isBlackout={state.isBlackout}
-        onToggleBlackout={() => setState((prev) => ({ ...prev, isBlackout: !prev.isBlackout }))}
-        timerSeconds={state.timerSeconds}
-        isTimerRunning={state.isTimerRunning}
-        onToggleTimer={() => setState((prev) => ({ ...prev, isTimerRunning: !prev.isTimerRunning }))}
-        onResetTimer={() => setState((prev) => ({ ...prev, timerSeconds: 0, isTimerRunning: false }))}
-        allSlides={filteredSlides.map((s) => ({ id: s.id, title: s.title, department: s.department }))}
-        onToggleDrawer={() => setState((prev) => ({ ...prev, showDrawer: !prev.showDrawer }))}
-      />
+        {/* Floating Presentation Controls */}
+        <PresentationControls
+          currentIndex={state.currentSlideIndex}
+          totalSlides={filteredSlides.length}
+          onPrev={handlePrevSlide}
+          onNext={handleNextSlide}
+          onJumpTo={handleJumpTo}
+          isFullscreen={state.isFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
+          isLaserActive={state.isLaserActive}
+          onToggleLaser={() => setState((prev) => ({ ...prev, isLaserActive: !prev.isLaserActive }))}
+          showNotes={state.showNotes}
+          onToggleNotes={() => setState((prev) => ({ ...prev, showNotes: !prev.showNotes }))}
+          isBlackout={state.isBlackout}
+          onToggleBlackout={() => setState((prev) => ({ ...prev, isBlackout: !prev.isBlackout }))}
+          timerSeconds={state.timerSeconds}
+          isTimerRunning={state.isTimerRunning}
+          onToggleTimer={() => setState((prev) => ({ ...prev, isTimerRunning: !prev.isTimerRunning }))}
+          onResetTimer={() => setState((prev) => ({ ...prev, timerSeconds: 0, isTimerRunning: false }))}
+          allSlides={filteredSlides.map((s) => ({ id: s.id, title: s.title, department: s.department }))}
+          onToggleDrawer={() => setState((prev) => ({ ...prev, showDrawer: !prev.showDrawer }))}
+        />
+      </div>
 
       {/* Speaker Notes Console Modal */}
       {state.showNotes && (
